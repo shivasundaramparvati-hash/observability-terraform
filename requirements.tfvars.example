@@ -1,0 +1,61 @@
+aws_account_id = "123456789012" # Replace before planning
+aws_region     = "ap-south-1"
+project_name   = "splunk"
+environment    = "dev"
+vpc_cidr       = "10.10.0.0/16"
+private_subnets = {
+  a = { cidr = "10.10.1.0/24", availability_zone = "ap-south-1a" }
+  b = { cidr = "10.10.2.0/24", availability_zone = "ap-south-1b" }
+  c = { cidr = "10.10.3.0/24", availability_zone = "ap-south-1c" }
+}
+# Only reachable through a VPN, Direct Connect or another private route into this VPC.
+admin_cidrs = ["10.20.0.0/24"]
+# Existing secret ARNs only; configure KMS decrypt permission separately for customer-managed keys.
+secret_arns = []
+servers = {
+  cluster_manager = {
+    count = 1, instance_type = "t3.medium", disk_gb = 40
+    ports = [
+      { port = 8000, admin_cidrs = true },
+      { port = 8089, source_roles = ["indexer", "search_head"] }
+    ]
+  }
+  deployer = {
+    count = 1, instance_type = "t3.medium", disk_gb = 40
+    ports = [
+      { port = 8000, admin_cidrs = true },
+      { port = 8089, source_roles = ["search_head"] }
+    ]
+  }
+  indexer = {
+    count = 3, instance_type = "t3.medium", disk_gb = 40
+    ports = [
+      { port = 8000, admin_cidrs = true },
+      { port = 8089, source_roles = ["cluster_manager", "search_head", "indexer"] },
+      { port = 9997, source_roles = ["universal_forwarder"] }
+    ]
+  }
+  search_head = {
+    count = 3, instance_type = "t3.medium", disk_gb = 40
+    ports = [
+      { port = 8000, admin_cidrs = true },
+      { port = 8089, source_roles = ["deployer", "cluster_manager", "search_head"] },
+      { port = 8191, source_roles = ["search_head"] }
+    ]
+  }
+  deployment_server = {
+    count = 1, instance_type = "t3.medium", disk_gb = 40
+    ports = [
+      { port = 8000, admin_cidrs = true },
+      { port = 8089, source_roles = ["universal_forwarder"] }
+    ]
+  }
+  universal_forwarder = {
+    count = 2, instance_type = "t3.medium", disk_gb = 40
+    ports = [
+      { port = 8000, admin_cidrs = true },
+      { port = 8089, admin_cidrs = true },
+      { port = 9997, source_roles = ["indexer"] }
+    ]
+  }
+}
